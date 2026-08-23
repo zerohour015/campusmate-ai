@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 import streamlit as st
 from dotenv import load_dotenv
 from google import genai
@@ -169,19 +170,20 @@ if uploaded_file:
     # TABS
     # =====================================================
 
-    ask_tab, study_tab, notice_tab = st.tabs(
-        [
-            "💬 Ask CampusMate",
-            "📚 Study Tools",
-            "📌 Notice Mode"
-        ]
-    )
+ask_tab, study_tab, notice_tab, youtube_tab = st.tabs(
+    [
+        "💬 Ask CampusMate",
+        "📚 Study Tools",
+        "📌 Notice Mode",
+        "🎥 YouTube Learning"
+    ]
+)
 
     # =====================================================
     # ASK TAB
     # =====================================================
 
-    with ask_tab:
+with ask_tab:
 
         st.subheader("💬 Ask anything about your document")
 
@@ -239,7 +241,7 @@ QUESTION:
     # STUDY TAB
     # =====================================================
 
-    with study_tab:
+with study_tab:
 
         st.subheader("📚 Study Tools")
 
@@ -397,7 +399,7 @@ DOCUMENT:
     # NOTICE MODE
     # =====================================================
 
-    with notice_tab:
+with notice_tab:
 
         st.subheader("📌 College Notice Mode")
 
@@ -461,8 +463,245 @@ NOTICE:
                 "</div>",
                 unsafe_allow_html=True
             )
+            # =====================================================
+    # YOUTUBE LEARNING
+    # =====================================================
 
-else:
+with youtube_tab:
+
+        st.subheader("🎥 Find YouTube Videos for Your Syllabus")
+
+        st.write(
+            "CampusMate will analyze your uploaded syllabus "
+            "and suggest YouTube searches for each topic."
+        )
+
+        if st.button(
+            "🔍 Find Videos for My Syllabus",
+            use_container_width=True
+        ):
+
+            topic_prompt = f"""
+You are an expert college academic advisor.
+
+Analyze the following college syllabus/document.
+
+Identify the important subjects, units and topics that
+a student would need to study.
+
+Return ONLY a clean numbered list of the most useful
+study topics.
+
+Do not include:
+- Administrative information
+- Dates
+- Notices
+- Assignments
+- Unrelated information
+
+For each topic, include the subject/unit if possible.
+
+Example:
+
+1. C Programming - Pointers
+2. C Programming - Arrays
+3. Data Structures - Linked Lists
+4. Data Structures - Stacks
+5. Data Structures - Queues
+
+Respond in {language}.
+
+DOCUMENT:
+{pdf_text}
+"""
+
+            with st.spinner("Analyzing your syllabus..."):
+
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=topic_prompt
+                )
+
+            topics_text = response.text
+
+            st.session_state["youtube_topics"] = topics_text
+
+        # -------------------------------------------------
+        # DISPLAY TOPICS
+        # -------------------------------------------------
+
+        if "youtube_topics" in st.session_state:
+
+            st.success("✅ Syllabus topics identified!")
+
+            st.subheader("📚 Topics Found")
+
+            st.write(
+                st.session_state["youtube_topics"]
+            )
+
+            st.divider()
+
+            st.subheader("🎯 Find a Video")
+
+            topic = st.text_input(
+                "Enter the topic you want to learn",
+                placeholder="Example: Linked Lists in C"
+            )
+
+# =====================================================
+# YOUTUBE VIDEO RECOMMENDATIONS
+# =====================================================
+# =====================================================
+# AI STUDY ROADMAP
+# =====================================================
+
+# =====================================================
+# LEARN MY SYLLABUS
+# =====================================================
+
+st.subheader("🎓 Learn My Syllabus")
+
+st.write(
+    "CampusMate creates a study order for your syllabus "
+    "and gives you YouTube resources for every topic."
+)
+
+if st.button(
+    "🚀 Create My Learning Plan",
+    use_container_width=True
+):
+
+    if "youtube_topics" not in st.session_state:
+
+        st.warning(
+            "Please click 'Find Videos for My Syllabus' first."
+        )
+
+    else:
+
+        topics = st.session_state["youtube_topics"]
+
+        learning_prompt = f"""
+You are CampusMate AI, an expert college study planner.
+
+Create a logical learning roadmap from these syllabus topics:
+
+{topics}
+
+Arrange the topics in the best order for a college student.
+
+For EVERY topic provide:
+
+1. Topic name
+2. Study order number
+3. Why this topic should be studied at this point
+4. What the student should understand before moving forward
+5. One simple practice suggestion
+
+Do not add topics that are not present in the syllabus.
+
+Respond in {language}.
+
+SYLLABUS TOPICS:
+{topics}
+"""
+
+        with st.spinner(
+            "Building your personalized learning plan..."
+        ):
+
+            roadmap_response = client.models.generate_content(
+                model="gemini-3.6-flash",
+                contents=learning_prompt
+            )
+
+        st.success(
+            "✅ Your personalized learning plan is ready!"
+        )
+
+        st.divider()
+
+        st.subheader("🗺️ Your Study Roadmap")
+
+        st.write(
+            roadmap_response.text
+        )
+
+        st.divider()
+
+        st.subheader(
+            "🎥 YouTube Resources for Your Roadmap"
+        )
+
+        # Extract numbered topics
+        topic_list = []
+
+        for line in topics.splitlines():
+
+            line = line.strip()
+
+            if line and line[0].isdigit():
+
+                try:
+
+                    topic = line.split(
+                        ".", 1
+                    )[1].strip()
+
+                    topic_list.append(topic)
+
+                except Exception:
+                    pass
+
+        if topic_list:
+
+            for i, topic in enumerate(
+                topic_list, 1
+            ):
+
+                st.markdown(
+                    f"### {i}. {topic}"
+                )
+
+                search_queries = [
+                    f"{topic} complete tutorial",
+                    f"{topic} explained for college students",
+                    f"{topic} exam preparation"
+                ]
+
+                for search_query in search_queries:
+
+                    encoded_query = urllib.parse.quote_plus(
+                        search_query
+                    )
+
+                    youtube_url = (
+                        "https://www.youtube.com/results?search_query="
+                        + encoded_query
+                    )
+
+                    st.markdown(
+                        f"▶️ [{search_query}]({youtube_url})"
+                    )
+
+                st.divider()
+
+        else:
+
+            st.warning(
+                "Could not extract individual topics "
+                "from the syllabus."
+            )
+
+        st.info(
+            "💡 Follow the roadmap from top to bottom. "
+            "Use the YouTube resources for each topic "
+            "before moving to the next one."
+        )
+
+
+if not uploaded_file:
 
     st.info(
         "👆 Upload a college PDF above to get started."
