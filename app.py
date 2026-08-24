@@ -486,88 +486,6 @@ NOTICE:
     # YOUTUBE LEARNING
     # =====================================================
 
-with learn_tab:
-
-        st.subheader("🎥 Find YouTube Videos for Your Syllabus")
-
-        st.write(
-            "CampusMate will analyze your uploaded syllabus "
-            "and suggest YouTube searches for each topic."
-        )
-
-        if st.button(
-            "🔍 Find Videos for My Syllabus",
-            use_container_width=True
-        ):
-
-            topic_prompt = f"""
-You are an expert college academic advisor.
-
-Analyze the following college syllabus/document.
-
-Identify the important subjects, units and topics that
-a student would need to study.
-
-Return ONLY a clean numbered list of the most useful
-study topics.
-
-Do not include:
-- Administrative information
-- Dates
-- Notices
-- Assignments
-- Unrelated information
-
-For each topic, include the subject/unit if possible.
-
-Example:
-
-1. C Programming - Pointers
-2. C Programming - Arrays
-3. Data Structures - Linked Lists
-4. Data Structures - Stacks
-5. Data Structures - Queues
-
-Respond in {language}.
-
-DOCUMENT:
-{pdf_text}
-"""
-
-            with st.spinner("Analyzing your syllabus..."):
-
-                response = client.models.generate_content(
-                    model="gemini-3.5-flash-lite",
-                    contents=topic_prompt
-                )
-
-            topics_text = response.text
-
-            st.session_state["youtube_topics"] = topics_text
-
-        # -------------------------------------------------
-        # DISPLAY TOPICS
-        # -------------------------------------------------
-
-        if "youtube_topics" in st.session_state:
-
-            st.success("✅ Syllabus topics identified!")
-
-            st.subheader("📚 Topics Found")
-
-            st.write(
-                st.session_state["youtube_topics"]
-            )
-
-
-# =====================================================
-# YOUTUBE VIDEO RECOMMENDATIONS
-# =====================================================
-# =====================================================
-# AI STUDY ROADMAP
-# =====================================================
-
-
 # =========================================================
 # LEARN & PRACTICE
 # =========================================================
@@ -632,9 +550,6 @@ DOCUMENT:
             )
 
         st.session_state["syllabus_topics"] = response.text
-
-        st.write("DEBUG - Gemini response:")
-        st.code(response.text)
 
         st.success("✅ Syllabus analyzed successfully!")
 
@@ -1052,6 +967,15 @@ SYLLABUS:
                             "quiz_submitted"
                         ] = True
 
+                        # Save quiz to history
+                        st.session_state.quiz_history.append({
+                             "topic": 
+                        st.session_state["quiz_topic"],
+                            "score": score,
+                            "total": len(quiz_data),
+                            "accuracy": (score / len(quiz_data)) * 100
+                        })
+
                     # =====================================
                     # SHOW SCORE
                     # =====================================
@@ -1184,8 +1108,15 @@ with progress_tab:
         accuracy = (correct_answers / total_questions) * 100
     else:
         accuracy = 0
+best_score = 0
 
-    col1, col2, col3 = st.columns(3)
+if st.session_state.quiz_history:
+    best_score = max(
+        quiz["accuracy"]
+        for quiz in st.session_state.quiz_history
+    )
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
@@ -1205,30 +1136,44 @@ with progress_tab:
             f"{accuracy:.1f}%"
         )
 
+    with col4:
+        st.metric(
+            "🏆 Best Score",
+            f"{best_score:.1f}%"
+        )
+
     st.divider()
 
     st.subheader("🏆 Quiz History")
 
-    if st.session_state.quiz_history:
+if st.session_state.quiz_history:
+    for quiz in reversed(st.session_state.quiz_history):
 
-        for quiz in reversed(st.session_state.quiz_history):
+        accuracy = quiz["accuracy"]
 
-            st.write(
-                f"📚 **{quiz['topic']}**"
-            )
+        if accuracy >= 80:
+            status = "🟢 Excellent"
+        elif accuracy >= 50:
+            status = "🟡 Needs Practice"
+        else:
+            status = "🔴 Needs Revision"
 
-            st.write(
-                f"Score: **{quiz['score']}/{quiz['total']}** "
-                f"({quiz['accuracy']:.1f}%)"
-            )
+        st.markdown(
+            f"""
+            ### 📘 {quiz['topic']}
 
-            st.divider()
-
-    else:
-
-        st.info(
-            "Complete your first quiz to see your progress here."
+            **Score:** {quiz['score']}/{quiz['total']}  
+            **Accuracy:** {accuracy:.1f}%  
+            **Performance:** {status}
+            """
         )
+
+        st.divider()
+
+else:
+    st.info(
+        "Complete your first quiz to see your progress here."
+    )
 
 
 if not uploaded_file:
